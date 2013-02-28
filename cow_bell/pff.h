@@ -28,25 +28,25 @@
 
 #define	_USE_READ	1	/* 1:Enable pf_read() */
 
-#define	_USE_DIR	1	/* 1:Enable pf_opendir() and pf_readdir() */
+#define	_USE_DIR	0	/* 1:Enable pf_opendir() and pf_readdir() */
 
-#define	_USE_LSEEK	1	/* 1:Enable pf_lseek() */
+#define	_USE_LSEEK	0	/* 1:Enable pf_lseek() */
 
 #define	_USE_WRITE	1	/* 1:Enable pf_write() */
 
-#define _FS_FAT12	0	/* 1:Enable FAT12 support */
+#define _FS_FAT12	1	/* 1:Enable FAT12 support */
 #define _FS_FAT32	1	/* 1:Enable FAT32 support */
 
 
 #define	_CODE_PAGE	1
 /* Defines which code page is used for path name. Supported code pages are:
-/  932, 936, 949, 95, 437, 720, 737, 775, 850, 852, 855, 857, 858, 862, 866,
+/  932, 936, 949, 950, 437, 720, 737, 775, 850, 852, 855, 857, 858, 862, 866,
 /  874, 1250, 1251, 1252, 1253, 1254, 1255, 1257, 1258 and 1 (ASCII only).
 /  SBCS code pages except for 1 requiers a case conversion table. This
 /  might occupy 128 bytes on the RAM on some platforms, e.g. avr-gcc. */
 
 
-#define _WORD_ACCESS	1
+#define _WORD_ACCESS	0
 /* The _WORD_ACCESS option defines which access method is used to the word
 /  data in the FAT structure.
 /
@@ -190,4 +190,3 @@ FRESULT pf_readdir (DIR*, FILINFO*);			/* Read a directory item from the open di
 
 
 #endif /* _FATFS */
-

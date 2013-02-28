@@ -23,7 +23,7 @@ DSTATUS disk_initialize (void)
 {
 	unsigned i;
 
-	//init_spi();
+	init_spi();
 	init_card_select_pin();
 
 	//pull CS high, then send at least 74 clock pulses to the module with SIMO high
@@ -62,6 +62,11 @@ DSTATUS disk_initialize (void)
 		}
 
 	}//close if cmd_8
+	//else{
+
+
+
+	//}//Version 1.0 or earlier
 
 	deselect_card();
 	return RES_OK;
@@ -91,9 +96,8 @@ DRESULT disk_readp (
 
 	timeout = 4000;
 
-	while((rec_byte() != 0xFE) && timeout){//Debug: this line is suspect
-		timeout--;
-	}
+	while((rec_byte() != 0xFE) && timeout--){}
+
 	if(timeout){
 		bytes_to_read = 514 - sofs - count;
 
@@ -105,11 +109,9 @@ DRESULT disk_readp (
 		}
 		//get requested data bytes
 		if(dest){
-			P1OUT |= 0x01; //GREG DEBUG
 			do {
 					*dest++ = rec_byte();
 			} while (--count);
-			P1OUT &= ~(0x01); //GREG DEBUG
 		}else{
 			do {
 				rec_byte();//DEBUG: Not sure if i need this. Examples uses	FORWARD(rec_byte()); for communication with a computer
@@ -230,7 +232,7 @@ inline void fill_zeros(WORD bytes_left)
 
 	while(zero_count){
 		zero_count--;
-		send_byte(0x00);
+		send_byte(0x20);
 	}
 
 }//End of fill_zeros

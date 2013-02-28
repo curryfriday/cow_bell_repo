@@ -9,41 +9,60 @@
  *	This code is in place to test the functions written for the sd_pff library
  */
 
-#include <msp430fr5739.h>
+#include <msp430fr5969.h>
 #include "pff.h"
 #include "spi.h"
 #include "integer.h"
 #include "diskio.h"
+#include "spi.h"
 
+#ifndef DEBUG
+#define DEBUG 1
+#define LIGHT_OFF P1OUT &= ~BIT1;
+#define BLINK1 while(1){__delay_cycles(1000000);P1OUT^=BIT1;}
+#define BLINK2 while(1){__delay_cycles(500000);P1OUT^=BIT1;}
+#define BLINK3 while(1){__delay_cycles(200000);P1OUT^=BIT1;}
+#define BLINK4 while(1){__delay_cycles(50000);P1OUT^=BIT1;}
+#endif
+
+void init_debug();
+void check_mount(FRESULT);
+void check_open(FRESULT);
 void init_ports();
+void show_me(FRESULT);
+
 unsigned char debounce_pin(unsigned char);
 
 int main()
 {
 	WDTCTL = WDTPW | WDTHOLD;	// Stop watchdog timer
 
-	unsigned char to_write[20] = "I added something.,";
+	unsigned char to_write[58] = "Chris owes me a beer. And the FATFS API is really dumb.";
 	unsigned char read_back[50];
-	int i;
+	unsigned char i;
 
-	FATFS* fs;
+	FATFS fs;
 	FRESULT res;
 	WORD* bytes_written;
 
-	init_spi();
     init_ports();
 
+	#if DEBUG
+   		init_debug();
+	#endif
 
-    while(1){
+   	res = pf_mount(&fs);
+ 	res = pf_open("NEW.TXT");
 
-    	if(debounce_pin(0)){
-    		//disk_initialize();
-    		res = pf_mount(fs);
-    		res = pf_open("NEW.TXT");
-    		res = pf_write(to_write, 20, bytes_written);
-    		res = pf_mount(0);
-    	}
+  //	check_open(res);
 
+   	res = pf_write(to_write, 58, bytes_written);
+
+   	res = pf_write(to_write, 0, bytes_written);
+	show_me(res);
+   	//res = pf_mount(0);
+
+   	while(1){
    	}
 
 
@@ -51,20 +70,58 @@ int main()
 
 void init_ports()
 {
-	P1DIR |= 0x01;
-	P1OUT &= ~(0x01);
-
-	PJDIR |= 0x0F;
-	PJOUT = 0x09;
-
-	P3DIR |= 0xF0;
-	P3OUT = 0x00;
-
-	P4DIR &= ~BIT0; //P4.0 is input
-	P4REN |= BIT0; //Enable resistor
-	P4OUT |= BIT0; //Pullup
-
 }//End of init_ports
+
+void init_debug()
+{
+	P1DIR |= BIT0 + BIT1 + BIT2;
+	P1OUT  |= BIT0 + BIT1 + BIT2;
+}
+
+void show_me(FRESULT res)
+{
+	unsigned char test = (unsigned char) res;
+
+	P1OUT &= 0xF8;
+	P1OUT |= test;
+
+}
+
+
+void check_mount(FRESULT res)
+{
+	switch(res){
+		case FR_OK: 			BLINK3;
+								break;
+		case FR_NOT_READY:		BLINK1;
+								break;
+		case FR_DISK_ERR:		BLINK2;
+								break;
+		case FR_NO_FILESYSTEM:	LIGHT_OFF;
+								break;
+		default:				BLINK4;
+								break;
+	}
+
+}
+
+void check_open(FRESULT res)
+{
+		switch(res){
+			case FR_OK: 			BLINK4;
+									break;
+			case FR_NO_FILE:		BLINK1;
+									break;
+			case FR_NO_PATH:		BLINK2;
+									break;
+			case FR_DISK_ERR:		BLINK3;
+									break;
+			case FR_NOT_ENABLED:	LIGHT_OFF;
+									break;
+		}
+
+}
+
 
 //The following debounce routine is based on the
 //digital filter w/ Schmitt Trigger in the class

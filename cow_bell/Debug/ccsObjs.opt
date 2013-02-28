@@ -1,0 +1,1 @@
+"./spi.obj" "./pff.obj" "./main.obj" "./diskio.obj" -l"libc.a" "../lnk_msp430fr5969.cmd" 

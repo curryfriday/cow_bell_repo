@@ -25,7 +25,7 @@
 #include "pff.h"		/* Petit FatFs configurations and declarations */
 #include "diskio.h"		/* Declarations of low level disk I/O functions */
 
-#include <msp430fr5739.h>
+
 
 /*--------------------------------------------------------------------------
 
@@ -425,11 +425,11 @@ FRESULT dir_rewind (
 	CLUST clst;
 	FATFS *fs = FatFs;
 
+
 	dj->index = 0;
 	clst = dj->sclust;
-	if (clst == 1 || clst >= fs->n_fatent){	/* Check start cluster range */
+	if (clst == 1 || clst >= fs->n_fatent)	/* Check start cluster range */
 		return FR_DISK_ERR;
-	}
 	if (_FS_FAT32 && !clst && fs->fs_type == FS_FAT32)	/* Replace cluster# 0 with root cluster# if in FAT32 */
 		clst = (CLUST)fs->dirbase;
 	dj->clust = clst;						/* Current cluster */
@@ -503,37 +503,16 @@ FRESULT dir_find (
 	res = dir_rewind(dj);			/* Rewind directory object */
 	if (res != FR_OK) return res;
 
-
 	do {
 		res = disk_readp(dir, dj->sect, (WORD)((dj->index % 16) * 32), 32)	/* Read an entry */
 			? FR_DISK_ERR : FR_OK;
-		//GREG EDIT
-		//	P3OUT = 0x00;//Greg edit
-		//end of Greg Edit
 		if (res != FR_OK) break;
-		//GREG EDIT
-			//P3OUT = 0xF0;//Greg edit
-		//end of Greg Edit
 		c = dir[DIR_Name];	/* First character */
-		if (c == 0) {
-			//GREG EDIT
-			//	P3OUT = 0xA0;//Greg edit
-			//end of Greg Edit
-			res = FR_NO_FILE; break;
-		}	/* Reached to end of table */
+		if (c == 0) { res = FR_NO_FILE; break; }	/* Reached to end of table */
 		if (!(dir[DIR_Attr] & AM_VOL) && !mem_cmp(dir, dj->fn, 11)) /* Is it a valid entry? */
 			break;
 		res = dir_next(dj);					/* Next entry */
 	} while (res == FR_OK);
-
-	//GREG EDIT
-	//if (res == FR_OK){
-
-		//GREG EDIT
-		//	P3OUT = 0xF0;//Greg edit
-		//end of Greg Edit
-	//}
-	//GREG EDIT
 
 	return res;
 }
@@ -700,12 +679,8 @@ FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
 			if (res != FR_OK) break;
 			res = dir_find(dj, dir);		/* Find it */
 			if (res != FR_OK) {				/* Could not find the object */
-				if (res == FR_NO_FILE && !*(dj->fn+11)){
+				if (res == FR_NO_FILE && !*(dj->fn+11))
 					res = FR_NO_PATH;
-				}
-				//GREG EDIT
-					//P3OUT = 0xF0;//Greg edit
-				//end of Greg Edit
 				break;
 			}
 			if (*(dj->fn+11)) break;		/* Last segment match. Function completed. */
@@ -732,19 +707,15 @@ BYTE check_fs (	/* 0:The FAT boot record, 1:Valid boot record but not an FAT, 2:
 	DWORD sect	/* Sector# (lba) to check if it is an FAT boot record or not */
 )
 {
-	if (disk_readp(buf, sect, 510, 2)){		/* Read the boot sector */
-		//PJOUT &= 0xFE;
+	if (disk_readp(buf, sect, 510, 2))		/* Read the boot sector */
 		return 3;
-	}//GREG EDIT
-	if (LD_WORD(buf) != 0xAA55){				/* Check record signature */
-		//PJOUT |= 0x01;
+	if (LD_WORD(buf) != 0xAA55)				/* Check record signature */
 		return 2;
-	}
+
 	if (!disk_readp(buf, sect, BS_FilSysType, 2) && LD_WORD(buf) == 0x4146)	/* Check FAT12/16 */
 		return 0;
 	if (_FS_FAT32 && !disk_readp(buf, sect, BS_FilSysType32, 2) && LD_WORD(buf) == 0x4146)	/* Check FAT32 */
 		return 0;
-
 	return 1;
 }
 
@@ -781,38 +752,18 @@ FRESULT pf_mount (
 	bsect = 0;
 	fmt = check_fs(buf, bsect);			/* Check sector 0 as an SFD format */
 	if (fmt == 1) {						/* Not an FAT boot record, it may be FDISK format */
-
-		//GREG EDIT:
-		//while(!(UCA0IFG & UCTXIFG)){}	//wait for SPI module to finish any current tasks
-		//UCA0TXBUF = buf[0];
-		//while(UCA0STATW & UCBUSY){}	//wait for SPI module to finish transmitting
-		//while(!(UCA0IFG & UCTXIFG)){}	//wait for SPI module to finish any current tasks
-		//UCA0TXBUF = buf[1];
-		//while(UCA0STATW & UCBUSY){}	//wait for SPI module to finish transmitting
-		//CS_POUT |= CS_BIT; //Greg Edit
-		//return FR_DISK_ERR;
-		//End of Greg Edit
-
-
 		/* Check a partition listed in top of the partition table */
 		if (disk_readp(buf, bsect, MBR_Table, 16)) {	/* 1st partition entry */
 			fmt = 3;
 		} else {
 			if (buf[4]) {					/* Is the partition existing? */
-				//GREG EDIT:
-				//PJOUT = 0x0F; //GREG EDIT
-				//End of GREG EDIT
 				bsect = LD_DWORD(&buf[8]);	/* Partition offset in LBA */
 				fmt = check_fs(buf, bsect);	/* Check the partition */
 			}
 		}
 	}
-
-
 	if (fmt == 3) return FR_DISK_ERR;
 	if (fmt) return FR_NO_FILESYSTEM;	/* No valid FAT patition is found */
-
-
 
 	/* Initialize the file system object */
 	if (disk_readp(buf, bsect, 13, sizeof(buf))) return FR_DISK_ERR;
@@ -846,10 +797,8 @@ FRESULT pf_mount (
 #endif
 
 	fs->fs_type = fmt;		/* FAT sub-type */
-	if (_FS_FAT32 && fmt == FS_FAT32){
+	if (_FS_FAT32 && fmt == FS_FAT32)
 		fs->dirbase = LD_DWORD(buf+(BPB_RootClus-13));	/* Root directory start cluster */
-		//PJOUT = 0x04; //GREG EDIT BREAKPOINT
-	}
 	else
 		fs->dirbase = fs->fatbase + fsize;				/* Root directory start sector (lba) */
 	fs->database = fs->fatbase + fsize + fs->n_rootdir / 16;	/* Data start sector (lba) */
@@ -883,12 +832,7 @@ FRESULT pf_open (
 	fs->flag = 0;
 	dj.fn = sp;
 	res = follow_path(&dj, dir, path);	/* Follow the file path */
-	if (res != FR_OK){
-		//GREG EDIT
-		//	P3OUT = 0xA0;//Greg edit
-		//end of Greg Edit
-		return res;		/* Follow failed */
-	}
+	if (res != FR_OK) return res;		/* Follow failed */
 	if (!dir[0] || (dir[DIR_Attr] & AM_DIR))	/* It is a directory */
 		return FR_NO_FILE;
 
