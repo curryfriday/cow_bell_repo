@@ -26,56 +26,59 @@
 #endif
 
 void init_debug();
-void check_mount(FRESULT);
-void check_open(FRESULT);
-void init_ports();
 void show_me(FRESULT);
+void init_clocks();
+void init_ports();
+void init_i2c();
 
-unsigned char debounce_pin(unsigned char);
+
+void get_temp(unsigned char*);
+void make_ascii(unsigned char*, char *);
 
 int main()
 {
 	WDTCTL = WDTPW | WDTHOLD;	// Stop watchdog timer
 
-	unsigned char to_write[58] = "Chris owes me a beer. And the FATFS API is really dumb.";
-	unsigned char read_back[50];
-	unsigned char i;
+	unsigned char temp[2];
+	char text[10];
+	unsigned char to_write[60];
+	unsigned char start[] = {'s', 't', 'a', 'r', 't'};
+	unsigned char first = 1;
+	char store[100];
+	unsigned char cnt = 0;
 
 	FATFS fs;
 	FRESULT res;
 	WORD* bytes_written;
 
+	//init_clocks();
     init_ports();
+    init_i2c();
 
-	#if DEBUG
-   		init_debug();
-	#endif
+    int i = 0;
+    while(i < 60)
+    {
+    	get_temp(temp);
+    	make_ascii(temp, text);
+    	to_write[i++] = text[0];
+    	to_write[i++] = text[1];
+    	to_write[i++] = text[2];
+    	to_write[i++] = '\n';
+    }
 
-   	res = pf_mount(&fs);
- 	res = pf_open("NEW.TXT");
-
-  //	check_open(res);
-
-   	res = pf_write(to_write, 58, bytes_written);
-
-   	res = pf_write(to_write, 0, bytes_written);
-	show_me(res);
-   	//res = pf_mount(0);
+    pf_mount(&fs);
+    pf_open("NEW.TXT");
+    pf_write(to_write, 60, bytes_written);
+    pf_write(to_write, 0, bytes_written);
+    pf_mount(0);
 
    	while(1){
+
+
+
    	}
 
 
-}
-
-void init_ports()
-{
-}//End of init_ports
-
-void init_debug()
-{
-	P1DIR |= BIT0 + BIT1 + BIT2;
-	P1OUT  |= BIT0 + BIT1 + BIT2;
 }
 
 void show_me(FRESULT res)
@@ -88,86 +91,77 @@ void show_me(FRESULT res)
 }
 
 
-void check_mount(FRESULT res)
+void init_ports()
 {
-	switch(res){
-		case FR_OK: 			BLINK3;
-								break;
-		case FR_NOT_READY:		BLINK1;
-								break;
-		case FR_DISK_ERR:		BLINK2;
-								break;
-		case FR_NO_FILESYSTEM:	LIGHT_OFF;
-								break;
-		default:				BLINK4;
-								break;
-	}
+	P1DIR = BIT0 + BIT1 + BIT2;
+	P1OUT = BIT0 + BIT1 + BIT2;
 
-}
+}//End of init_ports
 
-void check_open(FRESULT res)
+void init_clocks()
 {
-		switch(res){
-			case FR_OK: 			BLINK4;
-									break;
-			case FR_NO_FILE:		BLINK1;
-									break;
-			case FR_NO_PATH:		BLINK2;
-									break;
-			case FR_DISK_ERR:		BLINK3;
-									break;
-			case FR_NOT_ENABLED:	LIGHT_OFF;
-									break;
-		}
+	CSCTL0 = CSKEY; //set key
 
-}
+	CSCTL1 = DCOFSEL_0; //DC0 = 1MHZ
 
+	CSCTL2 = SELS_3; //SMCLK = DC0
 
-//The following debounce routine is based on the
-//digital filter w/ Schmitt Trigger in the class
-//slides. The general form is the same, but I made several
-//changes. It works with an entire port, rather than just one pin.
-//The pin currently being tested is specified in the pin arg.
-unsigned char debounce_pin(unsigned char pin)
+	CSCTL4 = LFXTOFF + HFXTOFF;
+
+	CSCTL0_H = 0x01; //Lock clocks -- Not sure if this is necessary
+
+}//End of init_clocks
+
+void init_i2c()
+{
+	P1SEL1 |= BIT6 + BIT7;
+
+	UCB0CTLW0 |= UCSWRST;
+
+	UCB0CTLW0 =   UCMST		//master mode
+				+ UCSYNC 	//synchronous
+				+ UCSSEL_3	//SMCLK
+				+ UCMODE_3	//i2c mode
+				;
+
+	UCB0BRW = 0x0008;
+
+	UCB0I2CSA = 0x48; //Slave address for the TM102
+
+	UCB0CTLW0 &= ~UCSWRST;
+
+}//End of init_i2c
+
+void get_temp(unsigned char* rec_byte)
 {
 
-	//Indicies 0-7 for old_val and flag represent pb's 0-7 on
-	//a given port. For this implementation, it is PORTC. The
-	//port can be changed in the "if(bit_is_clear(PINx...))"
-	//statement a few lines down
-	static int old_val[] = {0, 0, 0, 0, 0, 0, 0, 0};
-	static int flag[] = {0, 0, 0, 0, 0, 0, 0, 0};
+	UCB0CTLW0 |= UCTR;
+	UCB0CTLW0 |= UCTXSTT;
+	while(UCB0CTLW0 & UCTXSTT){} //spin until complete address has been sent
 
-	//Cool little division by subtraction routine from the slides
-	//Explained:
-	//	old_val >> 2 = old_val/4
-	//	old_val - old_val/4 = .75*old_val
-	old_val[pin] = old_val[pin] - (old_val[pin] >> 2);
+	UCB0CTLW0 |= UCTXSTP;
+	UCB0TXBUF = 0x00;
+	while(UCB0STATW & UCBBUSY){}
 
-	//Check bit: if button is pressed, add 0x4F to old_val
-	//Could change this number based on the switch being
-	//debounced
-	if(!(P4IN & (1 << pin)))
-		old_val[pin] = old_val[pin] + 0x3F;
+	UCB0I2CSA = 0x48; //Slave address for the TM102
+	UCB0CTLW0 &= ~UCTR;
+	UCB0CTLW0 |= UCTXSTT;
+	while(UCB0CTLW0 & UCTXSTT){} //spin until complete address has been sent
 
-	//Implement the software-based Schmitt Trigger
-	//with high and low threshold values of 0xF0 and 0x0F.
-	//Again, these can be changed based on preference/switch
-	//being tested.
-	if((old_val[pin] > 0xF0) && (flag[pin] == 0)){
-		flag[pin] = 1;
-	}
-	//Upon dropping below the low trigger threshold,
-	//the function returns 1. In all other cases,
-	//it returns 0.
-	if((old_val[pin] < 0x0F) && (flag[pin] == 1)){
-		flag[pin] = 0;
-		return 1;
-	}
+	while(!(UCB0IFG & UCRXIFG)){}//spin until byte is received
+	rec_byte[0] = UCB0RXBUF;
+	UCB0CTLW0 |= UCTXSTP;
 
-	//The return value of this function (output[pin]) tells
-	//the calling function whether or not the button at pin
-	//is 'pressed'.
-	return 0;
+	while(!(UCB0IFG & UCRXIFG)){}//spin until byte is received
+	rec_byte[1] = UCB0RXBUF;
 
-}//End of debounce_pin
+}//End of get_temp
+
+void make_ascii(unsigned char * temp, char * text)
+{
+	text[0] = 48 + temp[0] / 100; 	//Convert hundreds digit to ascii
+	text[1] = 48 + temp[0] / 10; 	//Convert tens digit to ascii
+	text[2] = 48 + temp[0] % 10; 	//Convert ones digit to ascii
+
+}//End of make_ascii
+

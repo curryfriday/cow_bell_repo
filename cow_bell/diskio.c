@@ -232,7 +232,7 @@ inline void fill_zeros(WORD bytes_left)
 
 	while(zero_count){
 		zero_count--;
-		send_byte(0x20);
+		send_byte('a');
 	}
 
 }//End of fill_zeros

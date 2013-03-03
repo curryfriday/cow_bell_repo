@@ -30,7 +30,7 @@
 
 #define	_USE_DIR	0	/* 1:Enable pf_opendir() and pf_readdir() */
 
-#define	_USE_LSEEK	0	/* 1:Enable pf_lseek() */
+#define	_USE_LSEEK	1	/* 1:Enable pf_lseek() */
 
 #define	_USE_WRITE	1	/* 1:Enable pf_write() */
 
