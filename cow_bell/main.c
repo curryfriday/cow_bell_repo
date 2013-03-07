@@ -55,7 +55,7 @@ int main()
     init_ports();
     init_i2c();
 
-    int i = 0;
+   /* int i = 0;
     while(i < 60)
     {
     	get_temp(temp);
@@ -64,12 +64,12 @@ int main()
     	to_write[i++] = text[1];
     	to_write[i++] = text[2];
     	to_write[i++] = '\n';
-    }
+    }*/
 
     pf_mount(&fs);
     pf_open("NEW.TXT");
-    pf_write(to_write, 60, bytes_written);
-    pf_write(to_write, 0, bytes_written);
+    pf_write(start, 4, bytes_written);
+    pf_write(start, 0, bytes_written);
     pf_mount(0);
 
    	while(1){
